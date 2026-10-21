@@ -1,0 +1,259 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
+import { AppContext, type AppContextValue } from "./context";
+import { AppShell } from "./components/AppShell";
+import { AuthPage, ResetPasswordPage } from "./components/AuthPage";
+import { OnboardingPage } from "./components/OnboardingPage";
+import { CatalogPage } from "./pages/CatalogPage";
+import { DestinationPage } from "./pages/DestinationPage";
+import { DiscoverPage } from "./pages/DiscoverPage";
+import { PlannerPage } from "./pages/PlannerPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { getProfile, getWishlist, saveProfile, setWishlistItem } from "./lib/data";
+import { getTravelPreferences, getTripDraft, saveTravelPreferences, saveTripDraft } from "./lib/persistence";
+import { supabase } from "./lib/supabase";
+import type { Language, Profile, TravelPreferences, TripDraft } from "./types";
+
+const emptyProfile: Profile = { id: "", display_name: "Traveller", onboarding_complete: false, language: "en" };
+const localWishlistKey = (userId: string) => `india-tourism:wishlist:${userId}`;
+const localProfileKey = (userId: string) => `india-tourism:profile:${userId}`;
+
+function readLocalWishlist(userId: string): string[] {
+  try { return JSON.parse(localStorage.getItem(localWishlistKey(userId)) ?? "[]") as string[]; } catch { return []; }
+}
+function writeLocalWishlist(userId: string, ids: string[]) {
+  try { localStorage.setItem(localWishlistKey(userId), JSON.stringify(ids)); } catch { /* Keep the app usable when storage is unavailable. */ }
+}
+function readLocalProfile(userId: string): Partial<Profile> {
+  try { return JSON.parse(localStorage.getItem(localProfileKey(userId)) ?? "{}"); } catch { return {}; }
+}
+function writeLocalProfile(userId: string, profile: Partial<Profile>) {
+  try { localStorage.setItem(localProfileKey(userId), JSON.stringify(profile)); } catch { /* Keep the app usable when storage is unavailable. */ }
+}
+
+function LoadingScreen() {
+  return <main className="loading-screen"><span className="loading-seal">✳</span><p>Finding your way…</p></main>;
+}
+
+function ProtectedArea({ session, profile, profileReady, value }: { session: Session | null; profile: Profile; profileReady: boolean; value: AppContextValue | null }) {
+  const location = useLocation();
+  if (!session) return <Navigate to="/signin" replace state={{ from: location.pathname }} />;
+  if (!profileReady || !value) return <LoadingScreen />;
+  const isOnboarding = location.pathname === "/onboarding";
+  if (!profile.onboarding_complete && !isOnboarding) return <Navigate to="/onboarding" replace />;
+  if (profile.onboarding_complete && isOnboarding) return <Navigate to="/discover" replace />;
+  return <AppContext.Provider value={value}><Outlet /></AppContext.Provider>;
+}
+
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [profile, setProfile] = useState<Profile>(emptyProfile);
+  const [profileReady, setProfileReady] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [language, setLanguageState] = useState<Language>("en");
+  const [preferences, setPreferences] = useState<TravelPreferences>({ slowTravel: true, culture: true, adventure: false, food: false });
+  const [trip, setTrip] = useState<TripDraft>(getTripDraft("guest"));
+  const [statusMessage, setStatusMessage] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setSession(data.session);
+      setAuthReady(true);
+    }).catch(() => { if (active) setAuthReady(true); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return;
+      setSession(nextSession);
+      setAuthReady(true);
+      if (event === "PASSWORD_RECOVERY") navigate("/reset-password", { replace: true });
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [navigate]);
+
+  useEffect(() => {
+    let active = true;
+    const user = session?.user;
+    if (!user) {
+      setProfile(emptyProfile);
+      setProfileReady(false);
+      setWishlist([]);
+      return () => { active = false; };
+    }
+    setProfileReady(false);
+    setPreferences(getTravelPreferences(user.id));
+    setTrip(getTripDraft(user.id));
+    const localProfile = readLocalProfile(user.id);
+    void Promise.all([getProfile(user.id), getWishlist(user.id)]).then(([profileResult, wishlistResult]) => {
+      if (!active) return;
+      const userName = user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Traveller";
+      const cloudProfile = profileResult.profile;
+      const merged: Profile = {
+        id: user.id,
+        display_name: cloudProfile?.display_name ?? localProfile.display_name ?? userName,
+        onboarding_complete: cloudProfile?.onboarding_complete ?? localProfile.onboarding_complete ?? false,
+        language: cloudProfile?.language ?? localProfile.language ?? "en",
+      };
+      setProfile(merged);
+      setLanguageState(merged.language);
+      if (profileResult.error || wishlistResult.error) {
+        setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
+      }
+      const savedIds = wishlistResult.error ? readLocalWishlist(user.id) : wishlistResult.ids;
+      setWishlist(savedIds);
+      if (!wishlistResult.error) writeLocalWishlist(user.id, savedIds);
+      setProfileReady(true);
+    }).catch(() => {
+      if (!active) return;
+      const userName = user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Traveller";
+      const merged: Profile = { ...emptyProfile, ...localProfile, id: user.id, display_name: localProfile.display_name ?? userName };
+      setProfile(merged);
+      setLanguageState(merged.language);
+      setWishlist(readLocalWishlist(user.id));
+      setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
+      setProfileReady(true);
+    });
+    return () => { active = false; };
+  }, [session?.user.id]);
+
+  const userId = session?.user.id ?? "";
+  const updateProfile = useCallback(async (name: string) => {
+    if (!userId) return false;
+    const next = { ...profile, id: userId, display_name: name.trim() || "Traveller" };
+    setProfile(next);
+    writeLocalProfile(userId, next);
+    try {
+      const error = await saveProfile(userId, next.display_name, next.language, next.onboarding_complete);
+      if (error) { setStatusMessage("Your name is saved on this device; cloud profile sync is unavailable right now."); return false; }
+      return true;
+    } catch {
+      setStatusMessage("Your name is saved on this device; cloud profile sync is unavailable right now.");
+      return false;
+    }
+  }, [profile, userId]);
+
+  const setLanguage = useCallback((nextLanguage: Language) => {
+    if (!userId) return;
+    setLanguageState(nextLanguage);
+    const next = { ...profile, language: nextLanguage };
+    setProfile(next);
+    writeLocalProfile(userId, next);
+    void saveProfile(userId, next.display_name, nextLanguage, next.onboarding_complete)
+      .then((error) => { if (error) setStatusMessage("Language saved on this device; cloud profile sync is unavailable right now."); })
+      .catch(() => setStatusMessage("Language saved on this device; cloud profile sync is unavailable right now."));
+  }, [profile, userId]);
+
+  const completeOnboarding = useCallback(async (nextLanguage: Language) => {
+    if (!userId) return;
+    setLanguageState(nextLanguage);
+    const next = { ...profile, id: userId, language: nextLanguage, onboarding_complete: true };
+    setProfile(next);
+    writeLocalProfile(userId, next);
+    try {
+      const error = await saveProfile(userId, next.display_name, nextLanguage, true);
+      if (error) setStatusMessage("Your language choice is saved on this device; cloud sync is unavailable right now.");
+    } catch {
+      setStatusMessage("Your language choice is saved on this device; cloud sync is unavailable right now.");
+    }
+    navigate("/discover", { replace: true });
+  }, [navigate, profile, userId]);
+
+  const updatePreferences = useCallback((next: TravelPreferences) => {
+    if (!userId) return;
+    setPreferences(next);
+    saveTravelPreferences(userId, next);
+  }, [userId]);
+
+  const toggleWishlist = useCallback(async (destinationId: string) => {
+    if (!userId) return;
+    const alreadySaved = wishlist.includes(destinationId);
+    const next = alreadySaved ? wishlist.filter((id) => id !== destinationId) : [...wishlist, destinationId];
+    setWishlist(next);
+    writeLocalWishlist(userId, next);
+    let syncFailed = false;
+    try { syncFailed = Boolean(await setWishlistItem(userId, destinationId, alreadySaved)); }
+    catch { syncFailed = true; }
+    if (syncFailed) setStatusMessage(alreadySaved ? "Place removed from this device’s saved list; cloud sync is unavailable." : "Place saved on this device; cloud sync is unavailable right now.");
+    else setStatusMessage(alreadySaved ? "Removed from your saved places." : "Saved for another day.");
+  }, [userId, wishlist]);
+
+  const updateTrip = useCallback((next: TripDraft) => {
+    setTrip(next);
+    if (userId) saveTripDraft(userId, next);
+  }, [userId]);
+
+  const contextValue = useMemo<AppContextValue | null>(() => {
+    if (!session) return null;
+    return { session, profile, language, preferences, wishlist, trip, statusMessage, setStatusMessage, setLanguage, updateProfile, updatePreferences, toggleWishlist, updateTrip, completeOnboarding };
+  }, [session, profile, language, preferences, wishlist, trip, statusMessage, setLanguage, updateProfile, updatePreferences, toggleWishlist, updateTrip, completeOnboarding]);
+
+  async function signIn(email: string, password: string) {
+    setAuthBusy(true); setAuthError(""); setAuthMessage("");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { setAuthError("We couldn’t sign you in with those details. Check them and try again."); return; }
+      navigate("/discover", { replace: true });
+    } catch {
+      setAuthError("We couldn’t reach the sign-in service. Check your connection and try again.");
+    } finally { setAuthBusy(false); }
+  }
+
+  async function signUp(name: string, email: string, password: string) {
+    setAuthBusy(true); setAuthError(""); setAuthMessage("");
+    try {
+      const options = { data: { display_name: name }, emailRedirectTo: `${window.location.origin}/signin` };
+      let result = await supabase.auth.signUp({ email, password, options });
+      if (result.error && /redirect|url.*allow|not allowed/i.test(result.error.message)) {
+        result = await supabase.auth.signUp({ email, password, options: { data: { display_name: name } } });
+      }
+      if (result.error) { setAuthError(result.error.message.toLowerCase().includes("already") ? "That email already has an account. Try signing in instead." : "We couldn’t create your account just now. Please try again."); return; }
+      if (result.data.session) navigate("/onboarding", { replace: true });
+      else setAuthMessage("Check your inbox for a confirmation link, then come back here to sign in. If the link opens the original site, finish confirmation there first.");
+    } catch {
+      setAuthError("We couldn’t reach the account service. Check your connection and try again.");
+    } finally { setAuthBusy(false); }
+  }
+
+  async function recover(email: string) {
+    setAuthBusy(true); setAuthError(""); setAuthMessage("");
+    try {
+      let result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+      if (result.error && /redirect|url.*allow|not allowed/i.test(result.error.message)) result = await supabase.auth.resetPasswordForEmail(email);
+      if (result.error) { setAuthError("We couldn’t send the reset link. Check the email address and try again."); return; }
+      setAuthMessage("If that email is connected to an account, a reset link is on its way.");
+    } catch {
+      setAuthError("We couldn’t reach the account service. Check your connection and try again.");
+    }
+    finally { setAuthBusy(false); }
+  }
+
+  if (!authReady) return <LoadingScreen />;
+  const onboardingPath = profile.onboarding_complete ? "/discover" : "/onboarding";
+
+  return (
+    <Routes>
+      <Route path="/signin" element={session ? <Navigate to={onboardingPath} replace /> : <AuthPage onSignIn={signIn} onSignUp={signUp} onRecover={recover} busy={authBusy} error={authError} message={authMessage} />} />
+      <Route path="/reset-password" element={<ResetPasswordPage onComplete={() => navigate(session ? "/discover" : "/signin", { replace: true })} />} />
+      <Route element={<ProtectedArea session={session} profile={profile} profileReady={profileReady} value={contextValue} />}>
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route element={<AppShell />}>
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/explore" element={<CatalogPage mode="explore" />} />
+          <Route path="/pilgrims" element={<CatalogPage mode="pilgrims" />} />
+          <Route path="/saved" element={<CatalogPage mode="saved" />} />
+          <Route path="/destination/:slug" element={<DestinationPage />} />
+          <Route path="/planner" element={<PlannerPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+      </Route>
+      <Route path="/" element={<Navigate to={session ? onboardingPath : "/signin"} replace />} />
+      <Route path="*" element={<Navigate to={session ? onboardingPath : "/signin"} replace />} />
+    </Routes>
+  );
+}

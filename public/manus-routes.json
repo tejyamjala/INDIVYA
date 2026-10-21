@@ -1,0 +1,15 @@
+{
+  "routes": [
+    { "path": "/", "title": "India Tourism" },
+    { "path": "/signin", "title": "Sign in — India Tourism" },
+    { "path": "/onboarding", "title": "Your travel preferences — India Tourism" },
+    { "path": "/discover", "title": "Discover India — India Tourism" },
+    { "path": "/explore", "title": "Explore destinations — India Tourism" },
+    { "path": "/pilgrims", "title": "Sacred journeys — India Tourism" },
+    { "path": "/destination/:slug", "title": "Destination — India Tourism" },
+    { "path": "/saved", "title": "Your saved places — India Tourism" },
+    { "path": "/planner", "title": "Trip planner — India Tourism" },
+    { "path": "/profile", "title": "Your travel profile — India Tourism" },
+    { "path": "/reset-password", "title": "Reset password — India Tourism" }
+  ]
+}
