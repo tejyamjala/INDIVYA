@@ -39,7 +39,7 @@
 
 ## 12. New-site delivery
 - [ ] Publish the rebuilt website as a new project and leave the original Bolt-hosted app unchanged.
-- [ ] Put the rebuilt source in the selected GitHub repository `tejyamjala/INDIVYA`.
+- [x] Put the rebuilt source in the selected GitHub repository `tejyamjala/INDIVYA`.
 
 ## 13. Existing Supabase Auth redirect configuration
 - [ ] Confirm that the final published website hostname is allowed in the existing Supabase Auth redirect URLs so confirmation and password-reset links return to the rebuilt site. If it is not allowed, the app falls back to the existing default redirect.
