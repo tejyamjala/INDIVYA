@@ -7,7 +7,7 @@ A new web rebuild of the India Tourism experience. The original Bolt-hosted site
 - Email/password sign-in, account creation and password recovery; sign-in, sign-up and reset pages always remain in English.
 - New accounts choose a preferred language during signup. After sign-in, the app uses that account's saved language; signing out returns the public authentication screen to English.
 - The complete signed-in interface can be used in English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali or Marathi; the account preference persists for later logins.
-- Discover home, 40 India destinations, searchable/filtered Explore, 19 sacred pilgrimage places, destination detail and Maps handoff.
+- Discover home, 50 India destinations, searchable/filtered Explore, 19 sacred pilgrimage places, destination detail and Maps handoff.
 - Live weather via Open-Meteo, saved places, traveller profile and preferences, plus Mira’s contextual travel companion.
 - A multi-place trip planner with days, traveller count, daily pace, interests and Value/Balanced/Luxury spending comfort; it shows illustrative per-person and group estimates for stays, food, outings/experiences, shopping, travel and incidentals, plus a day-by-day draft.
 - A cinematic sign-in video transitioning from cloud-covered mountains to the coast.
