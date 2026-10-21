@@ -35,11 +35,13 @@ export type TravelPreferences = {
 };
 
 export type TripPace = "Relaxed" | "Balanced" | "Packed";
+export type TripBudgetStyle = "Value" | "Balanced" | "Luxury";
 
 export type TripDraft = {
   destinationIds: string[];
   days: number;
   travellers: number;
   pace: TripPace;
+  budgetStyle: TripBudgetStyle;
   interests: string[];
 };

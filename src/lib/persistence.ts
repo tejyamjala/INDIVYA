@@ -12,6 +12,7 @@ export const defaultTrip: TripDraft = {
   days: 4,
   travellers: 2,
   pace: "Balanced",
+  budgetStyle: "Balanced",
   interests: ["Culture", "Nature"],
 };
 
@@ -44,8 +45,13 @@ export function saveTravelPreferences(userId: string, preferences: TravelPrefere
 }
 
 export function getTripDraft(userId: string): TripDraft {
-  const value = readValue<TripDraft>(tripKey(userId), defaultTrip);
-  return { ...defaultTrip, ...value, destinationIds: value.destinationIds ?? defaultTrip.destinationIds };
+  const value = readValue<Partial<TripDraft>>(tripKey(userId), defaultTrip);
+  return {
+    ...defaultTrip,
+    ...value,
+    destinationIds: value.destinationIds ?? defaultTrip.destinationIds,
+    budgetStyle: value.budgetStyle ?? defaultTrip.budgetStyle,
+  };
 }
 
 export function saveTripDraft(userId: string, draft: TripDraft) {

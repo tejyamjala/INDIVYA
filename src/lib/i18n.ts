@@ -1,18 +1,91 @@
 import type { Language } from "../types";
 
-type CopyKey = "discover" | "explore" | "pilgrims" | "planner" | "saved" | "profile" | "search" | "save" | "planTrip" | "signOut";
+type Dictionary = Record<string, string>;
+type LocaleModule = { default: Dictionary };
 
-const copy: Record<Language, Record<CopyKey, string>> = {
-  en: { discover: "Discover", explore: "Explore", pilgrims: "Pilgrims", planner: "Trip planner", saved: "Saved", profile: "Profile", search: "Search places, states, experiences", save: "Save place", planTrip: "Plan a trip", signOut: "Sign out" },
-  hi: { discover: "खोजें", explore: "घूमें", pilgrims: "तीर्थ", planner: "यात्रा योजना", saved: "सहेजे गए", profile: "प्रोफ़ाइल", search: "जगह, राज्य या अनुभव खोजें", save: "जगह सहेजें", planTrip: "यात्रा बनाएँ", signOut: "साइन आउट" },
-  te: { discover: "కనుగొనండి", explore: "అన్వేషించండి", pilgrims: "పుణ్యక్షేత్రాలు", planner: "యాత్ర ప్రణాళిక", saved: "సేవ్ చేసినవి", profile: "ప్రొఫైల్", search: "ప్రదేశాలు, రాష్ట్రాలు, అనుభవాలు వెతకండి", save: "ప్రదేశాన్ని సేవ్ చేయండి", planTrip: "యాత్రను ప్లాన్ చేయండి", signOut: "సైన్ అవుట్" },
-  ta: { discover: "கண்டறியுங்கள்", explore: "ஆராயுங்கள்", pilgrims: "புனிதத் தலங்கள்", planner: "பயணத் திட்டம்", saved: "சேமித்தவை", profile: "சுயவிவரம்", search: "இடங்கள், மாநிலங்கள், அனுபவங்களைத் தேடுங்கள்", save: "இடத்தைச் சேமிக்கவும்", planTrip: "பயணத்தைத் திட்டமிடு", signOut: "வெளியேறு" },
-  kn: { discover: "ಕಂಡುಹಿಡಿಯಿರಿ", explore: "ಅನ್ವೇಷಿಸಿ", pilgrims: "ತೀರ್ಥಕ್ಷೇತ್ರಗಳು", planner: "ಪ್ರಯಾಣ ಯೋಜನೆ", saved: "ಉಳಿಸಿದವು", profile: "ಪ್ರೊಫೈಲ್", search: "ಸ್ಥಳ, ರಾಜ್ಯ, ಅನುಭವ ಹುಡುಕಿ", save: "ಸ್ಥಳ ಉಳಿಸಿ", planTrip: "ಪ್ರಯಾಣ ಯೋಜಿಸಿ", signOut: "ಸೈನ್ ಔಟ್" },
-  ml: { discover: "കണ്ടെത്തൂ", explore: "പര്യവേക്ഷണം", pilgrims: "തീർത്ഥാടനങ്ങൾ", planner: "യാത്രാ പദ്ധതി", saved: "സേവ് ചെയ്തത്", profile: "പ്രൊഫൈൽ", search: "സ്ഥലങ്ങളും സംസ്ഥാനങ്ങളും അനുഭവങ്ങളും തിരയൂ", save: "സ്ഥലം സേവ് ചെയ്യൂ", planTrip: "യാത്ര പ്ലാൻ ചെയ്യൂ", signOut: "സൈൻ ഔട്ട്" },
-  bn: { discover: "আবিষ্কার", explore: "ঘুরে দেখুন", pilgrims: "তীর্থস্থান", planner: "ভ্রমণ পরিকল্পনা", saved: "সংরক্ষিত", profile: "প্রোফাইল", search: "স্থান, রাজ্য, অভিজ্ঞতা খুঁজুন", save: "জায়গা সংরক্ষণ করুন", planTrip: "ভ্রমণ পরিকল্পনা করুন", signOut: "সাইন আউট" },
-  mr: { discover: "शोधा", explore: "फिरा", pilgrims: "तीर्थक्षेत्रे", planner: "प्रवास नियोजन", saved: "जतन केलेले", profile: "प्रोफाइल", search: "ठिकाणे, राज्ये, अनुभव शोधा", save: "ठिकाण जतन करा", planTrip: "प्रवास आखा", signOut: "साइन आउट" },
+const localeTags: Record<Language, string> = {
+  en: "en-IN",
+  hi: "hi-IN",
+  te: "te-IN",
+  ta: "ta-IN",
+  kn: "kn-IN",
+  ml: "ml-IN",
+  bn: "bn-IN",
+  mr: "mr-IN",
 };
 
+const localeLoaders: Record<Language, () => Promise<LocaleModule>> = {
+  en: async () => ({ default: {} }),
+  hi: () => import("../locales/hi.json"),
+  te: () => import("../locales/te.json"),
+  ta: () => import("../locales/ta.json"),
+  kn: () => import("../locales/kn.json"),
+  ml: () => import("../locales/ml.json"),
+  bn: () => import("../locales/bn.json"),
+  mr: () => import("../locales/mr.json"),
+};
+
+const dictionaries: Partial<Record<Language, Dictionary>> = { en: {} };
+const loading: Partial<Record<Language, Promise<void>>> = {};
+let activeLanguage: Language = "en";
+
+const legacyKeys = {
+  discover: "Discover",
+  explore: "Explore",
+  pilgrims: "Pilgrims",
+  planner: "Trip planner",
+  saved: "Saved",
+  profile: "Profile",
+  search: "Search places, states, experiences",
+  save: "Save place",
+  planTrip: "Plan a trip",
+  signOut: "Sign out",
+} as const;
+export type CopyKey = keyof typeof legacyKeys;
+
+export function getLocaleTag(language: Language): string {
+  return localeTags[language] ?? localeTags.en;
+}
+
+export function setActiveLanguage(language: Language) {
+  activeLanguage = language;
+}
+
+export function isLocaleLoaded(language: Language): boolean {
+  return dictionaries[language] !== undefined;
+}
+
+export function loadLocale(language: Language): Promise<void> {
+  if (isLocaleLoaded(language)) return Promise.resolve();
+  if (loading[language]) return loading[language]!;
+  loading[language] = localeLoaders[language]().then(({ default: dictionary }) => {
+    dictionaries[language] = dictionary;
+  }).catch(() => {
+    // Keep the app usable if a locale chunk cannot be reached; English remains the fallback.
+    dictionaries[language] = {};
+  });
+  return loading[language]!;
+}
+
+export function translate(language: Language, source: string, values?: Record<string, string | number>): string {
+  const key = source.replace(/\s+/g, " ").trim();
+  const template = dictionaries[language]?.[key] ?? source;
+  const rendered = values ? template.replace(/\{\{(\d+)\}\}/g, (placeholder, key: string) => {
+    const value = values[key];
+    return value === undefined ? placeholder : String(value);
+  }) : template;
+  const namedEntities: Record<string, string> = { amp: "&", apos: "'", gt: ">", lt: "<", nbsp: "\u00a0", quot: "\"" };
+  return rendered.replace(/&(#x[\da-f]+|#\d+|amp|apos|gt|lt|nbsp|quot);/gi, (entity, value: string) => {
+    if (value[0] !== "#") return namedEntities[value.toLowerCase()] ?? entity;
+    const codePoint = value[1]?.toLowerCase() === "x" ? Number.parseInt(value.slice(2), 16) : Number.parseInt(value.slice(1), 10);
+    return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+  });
+}
+
+export function tr(source: string, values?: Record<string, string | number>): string {
+  return translate(activeLanguage, source, values);
+}
+
 export function t(language: Language, key: CopyKey): string {
-  return copy[language]?.[key] ?? copy.en[key];
+  return translate(language, legacyKeys[key]);
 }

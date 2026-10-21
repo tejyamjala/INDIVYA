@@ -730,3 +730,22 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .auth-poster { display: block; }
 }
+
+
+/* Expanded trip budget controls */
+.spending-heading { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 9px; }
+.spending-heading > span { display: inline-flex; align-items: center; gap: 7px; color: #6f7d72; font-size: 9px; font-weight: 700; }
+.spending-heading > span svg { color: var(--teal); }
+.spending-heading small { color: #989a90; font-size: 8px; }
+.spending-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.spending-option { min-height: 76px; display: grid; grid-template-columns: 16px 1fr; align-content: center; align-items: center; gap: 5px 7px; padding: 10px; border: 1px solid #e1e3d9; color: #53675b; background: transparent; text-align: left; cursor: pointer; }
+.spending-option.selected { border-color: #7aa693; background: #eff4ed; }
+.spending-option strong { font: 500 11px var(--serif); }
+.spending-option small { grid-column: 2; color: #8b9188; font-size: 7px; line-height: 1.4; }
+.budget-person-total { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 12px; padding-bottom: 11px; border-bottom: 1px solid #eeede5; color: #82877d; font-size: 8px; }
+.budget-person-total strong { color: #526b5b; font-size: 10px; font-weight: 600; }
+.budget-empty-note { margin: 9px 0 0; color: #9a7652; font-size: 8px; }
+@media (max-width: 640px) {
+  .spending-options { grid-template-columns: 1fr; gap: 6px; }
+  .spending-option { min-height: 58px; }
+}

@@ -1,5 +1,7 @@
+import { tr } from "./i18n";
+
 export function setPageMeta(title: string, description?: string) {
-  document.title = title;
+  document.title = tr(title);
   if (description) {
     let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     if (!meta) {
@@ -7,6 +9,6 @@ export function setPageMeta(title: string, description?: string) {
       meta.name = "description";
       document.head.append(meta);
     }
-    meta.content = description;
+    meta.content = tr(description);
   }
 }

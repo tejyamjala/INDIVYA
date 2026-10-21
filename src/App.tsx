@@ -13,11 +13,32 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { getProfile, getWishlist, saveProfile, setWishlistItem } from "./lib/data";
 import { getTravelPreferences, getTripDraft, saveTravelPreferences, saveTripDraft } from "./lib/persistence";
 import { supabase } from "./lib/supabase";
+import { getLocaleTag, isLocaleLoaded, loadLocale, setActiveLanguage } from "./lib/i18n";
 import type { Language, Profile, TravelPreferences, TripDraft } from "./types";
+
 
 const emptyProfile: Profile = { id: "", display_name: "Traveller", onboarding_complete: false, language: "en" };
 const localWishlistKey = (userId: string) => `india-tourism:wishlist:${userId}`;
 const localProfileKey = (userId: string) => `india-tourism:profile:${userId}`;
+const preferredLanguageKey = "india-tourism:language";
+const supportedLanguages: Language[] = ["en", "hi", "te", "ta", "kn", "ml", "bn", "mr"];
+
+function readPreferredLanguage(): Language {
+  try {
+    const saved = localStorage.getItem(preferredLanguageKey) as Language | null;
+    return saved && supportedLanguages.includes(saved) ? saved : "en";
+  } catch {
+    return "en";
+  }
+}
+
+function isSupportedLanguage(value: unknown): value is Language {
+  return typeof value === "string" && supportedLanguages.includes(value as Language);
+}
+
+function writePreferredLanguage(language: Language) {
+  try { localStorage.setItem(preferredLanguageKey, language); } catch { /* Keep the current session usable if storage is unavailable. */ }
+}
 
 function readLocalWishlist(userId: string): string[] {
   try { return JSON.parse(localStorage.getItem(localWishlistKey(userId)) ?? "[]") as string[]; } catch { return []; }
@@ -33,7 +54,7 @@ function writeLocalProfile(userId: string, profile: Partial<Profile>) {
 }
 
 function LoadingScreen() {
-  return <main className="loading-screen"><span className="loading-seal">✳</span><p>Finding your way…</p></main>;
+  return <main className="loading-screen" aria-busy="true"><span className="loading-seal" aria-hidden="true">✳</span></main>;
 }
 
 function ProtectedArea({ session, profile, profileReady, value }: { session: Session | null; profile: Profile; profileReady: boolean; value: AppContextValue | null }) {
@@ -52,7 +73,7 @@ export default function App() {
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [profileReady, setProfileReady] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
-  const [language, setLanguageState] = useState<Language>("en");
+  const [language, setLanguageState] = useState<Language>(readPreferredLanguage);
   const [preferences, setPreferences] = useState<TravelPreferences>({ slowTravel: true, culture: true, adventure: false, food: false });
   const [trip, setTrip] = useState<TripDraft>(getTripDraft("guest"));
   const [statusMessage, setStatusMessage] = useState("");
@@ -60,6 +81,15 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const navigate = useNavigate();
+  const [, forceLocaleRender] = useState(0);
+
+  setActiveLanguage(language);
+  useEffect(() => {
+    let active = true;
+    document.documentElement.lang = getLocaleTag(language);
+    void loadLocale(language).then(() => { if (active) forceLocaleRender((version) => version + 1); });
+    return () => { active = false; };
+  }, [language]);
 
   useEffect(() => {
     let active = true;
@@ -94,14 +124,20 @@ export default function App() {
       if (!active) return;
       const userName = user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Traveller";
       const cloudProfile = profileResult.profile;
+      const localLanguage = isSupportedLanguage(localProfile.language) ? localProfile.language : undefined;
+      const cloudLanguage = isSupportedLanguage(cloudProfile?.language) ? cloudProfile.language : undefined;
       const merged: Profile = {
         id: user.id,
         display_name: cloudProfile?.display_name ?? localProfile.display_name ?? userName,
         onboarding_complete: cloudProfile?.onboarding_complete ?? localProfile.onboarding_complete ?? false,
-        language: cloudProfile?.language ?? localProfile.language ?? "en",
+        language: localLanguage ?? cloudLanguage ?? "en",
       };
       setProfile(merged);
       setLanguageState(merged.language);
+      writePreferredLanguage(merged.language);
+      if (!profileResult.error && cloudProfile && localLanguage && localLanguage !== cloudLanguage) {
+        void saveProfile(user.id, merged.display_name, localLanguage, merged.onboarding_complete).catch(() => undefined);
+      }
       if (profileResult.error || wishlistResult.error) {
         setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
       }
@@ -115,6 +151,7 @@ export default function App() {
       const merged: Profile = { ...emptyProfile, ...localProfile, id: user.id, display_name: localProfile.display_name ?? userName };
       setProfile(merged);
       setLanguageState(merged.language);
+      writePreferredLanguage(merged.language);
       setWishlist(readLocalWishlist(user.id));
       setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
       setProfileReady(true);
@@ -139,19 +176,26 @@ export default function App() {
   }, [profile, userId]);
 
   const setLanguage = useCallback((nextLanguage: Language) => {
-    if (!userId) return;
+    setStatusMessage("");
+    setAuthError("");
+    setAuthMessage("");
     setLanguageState(nextLanguage);
+    setActiveLanguage(nextLanguage);
+    writePreferredLanguage(nextLanguage);
+    if (!userId) return;
     const next = { ...profile, language: nextLanguage };
     setProfile(next);
     writeLocalProfile(userId, next);
     void saveProfile(userId, next.display_name, nextLanguage, next.onboarding_complete)
       .then((error) => { if (error) setStatusMessage("Language saved on this device; cloud profile sync is unavailable right now."); })
       .catch(() => setStatusMessage("Language saved on this device; cloud profile sync is unavailable right now."));
-  }, [profile, userId]);
+  }, [profile, setStatusMessage, userId]);
 
   const completeOnboarding = useCallback(async (nextLanguage: Language) => {
     if (!userId) return;
     setLanguageState(nextLanguage);
+    setActiveLanguage(nextLanguage);
+    writePreferredLanguage(nextLanguage);
     const next = { ...profile, id: userId, language: nextLanguage, onboarding_complete: true };
     setProfile(next);
     writeLocalProfile(userId, next);
@@ -233,7 +277,7 @@ export default function App() {
     finally { setAuthBusy(false); }
   }
 
-  if (!authReady) return <LoadingScreen />;
+  if (!authReady || !isLocaleLoaded(language)) return <LoadingScreen />;
   const onboardingPath = profile.onboarding_complete ? "/discover" : "/onboarding";
 
   return (
