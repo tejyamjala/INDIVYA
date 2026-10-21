@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, CloudSun, Compass, ExternalLink, ThermometerSun, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, Car, Clock3, CloudSun, Compass, ExternalLink, Hotel, MapPin, ThermometerSun, Utensils, Users } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { destinations } from "../data/destinations";
 import { useAppContext } from "../context";
@@ -8,6 +8,9 @@ import { setPageMeta } from "../lib/meta";
 import { DestinationCard } from "../components/DestinationCard";
 import { tr } from "../lib/i18n";
 import { localizeDestination } from "../lib/localize";
+import { getTravelGuide, withMapLinks, type BudgetTier } from "../data/travelGuide";
+
+const budgetTiers: BudgetTier[] = ["Value", "Balanced", "Luxury"];
 
 export function DestinationPage() {
   const { slug } = useParams();
@@ -34,6 +37,7 @@ export function DestinationPage() {
   const display = localizeDestination(destination);
   const saved = wishlist.includes(destination.id);
   const related = destinations.filter((item) => item.id !== destination.id && item.region === destination.region).slice(0, 3);
+  const guide = withMapLinks(getTravelGuide(destination));
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${destination.lat},${destination.lon}`;
   const destinationId = destination.id;
 
@@ -68,6 +72,25 @@ export function DestinationPage() {
             <h2>{tr("Let the day")} <em>{tr("unfold.")}</em></h2>
             <div className="highlight-list">{display.highlights.map((highlight, index) => <div className="highlight-item" key={`${destination.id}-highlight-${index}`}><span className="highlight-index">{String(index + 1).padStart(2, "0")}</span><span>{highlight}</span><span className="highlight-rule" /></div>)}</div>
           </section>
+
+          <section className="travel-guide-section">
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> {tr("PLAN THE DAYS AROUND YOU")}</div><h2>{tr("Nearby places")} <em>{tr("worth the detour.")}</em></h2></div><a className="section-link" href={mapsUrl} target="_blank" rel="noopener noreferrer">{tr("Open destination map")} <ExternalLink size={15} /></a></div>
+            <p className="travel-guide-intro">{tr("Each stop includes a practical travel-time estimate and a direct Maps search, so you can shape the day around your budget and energy.")}</p>
+            <div className="nearby-list">{guide.nearby.map((place) => <article className="nearby-card" key={place.name}><div className="nearby-card-icon"><MapPin size={18} /></div><div className="nearby-card-copy"><div className="nearby-card-title"><div><strong>{place.name}</strong><span>{place.type}</span></div><a href={place.mapsUrl} target="_blank" rel="noopener noreferrer" aria-label={tr("Open {{0}} in Maps", { "0": place.name })}><ExternalLink size={15} /></a></div><p>{place.description}</p><div className="nearby-meta"><span><Clock3 size={13} /> {place.travelTime}</span><span><Car size={13} /> {place.mode}</span></div></div></article>)}</div>
+          </section>
+
+          <section className="recommendation-section">
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> {tr("STAY YOUR WAY")}</div><h2>{tr("Places to stay")} <em>{tr("for every budget.")}</em></h2></div></div>
+            <p className="travel-guide-intro">{tr("These are curated starting points, not live availability. Open Maps to check the latest rates, reviews and directions before booking.")}</p>
+            <div className="recommendation-grid">{budgetTiers.map((tier) => { const stay = guide.stays.find((item) => item.tier === tier); return stay ? <article className={`recommendation-card tier-${tier.toLowerCase()}`} key={stay.name}><div className="recommendation-card-top"><span className="recommendation-icon"><Hotel size={17} /></span><span className="budget-pill">{tr(tier)}</span></div><h3>{stay.name}</h3><p className="recommendation-location">{stay.area} · {stay.price}</p><p>{stay.why}</p><a className="text-link" href={stay.mapsUrl} target="_blank" rel="noopener noreferrer">{tr("Check on Maps")} <ExternalLink size={13} /></a></article> : null; })}</div>
+          </section>
+
+          <section className="recommendation-section restaurant-section">
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> {tr("EAT NEARBY")}</div><h2>{tr("Good food")} <em>{tr("at your pace.")}</em></h2></div></div>
+            <p className="travel-guide-intro">{tr("A spread of local, comfortable and special-occasion options. Prices are indicative per person and can change with the menu.")}</p>
+            <div className="recommendation-grid">{budgetTiers.map((tier) => { const restaurant = guide.restaurants.find((item) => item.tier === tier); return restaurant ? <article className={`recommendation-card tier-${tier.toLowerCase()}`} key={restaurant.name}><div className="recommendation-card-top"><span className="recommendation-icon"><Utensils size={17} /></span><span className="budget-pill">{tr(tier)}</span></div><h3>{restaurant.name}</h3><p className="recommendation-location">{restaurant.area} · {restaurant.price}</p><p><strong>{restaurant.cuisine}</strong> · {restaurant.why}</p><a className="text-link" href={restaurant.mapsUrl} target="_blank" rel="noopener noreferrer">{tr("Find nearby")} <ExternalLink size={13} /></a></article> : null; })}</div>
+          </section>
+
           {related.length > 0 && <section className="related-section"><div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> {tr("NEARBY IN SPIRIT")}</div><h2>{tr("Stay in the")} <em>{tr("neighbourhood.")}</em></h2></div><Link className="section-link" to="/explore">{tr("All places")} <ArrowRight size={15} /></Link></div><div className="destination-grid related-grid">{related.map((item, index) => <DestinationCard key={item.id} destination={item} index={index} />)}</div></section>}
         </main>
 
