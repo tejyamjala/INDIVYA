@@ -3,12 +3,15 @@
 ## 1. Authentication and sign-in background
 - [x] The authentication flow supports sign-in, account creation and password recovery.
 - [x] The sign-in page uses a lively full-screen video background moving from cloud-covered Himalayan mountains through green coastal hills to an Indian beach.
+- [x] Keep sign-in, sign-up, password-recovery/reset and authentication status text in English regardless of the previous user's selected language.
+- [x] During first-time account creation, ask “Preferred language” and save the selection (English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali or Marathi) with that account.
+- [x] After sign-in, use that account's saved language for the signed-in app; on sign-out, return the public authentication screen to English so one user's locale is not shown to the next user.
 
 ## 2. Traveller onboarding
 - [x] Onboarding lets travellers choose their preferred language before entering the main experience.
 
 ## 3. Full-interface localization
-- [x] When a traveller selects a preferred language, all user-facing text across the signed-in app changes immediately to that language and remains selected on future logins. Support English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali and Marathi. Include navigation, page copy, forms, actions, filters, empty/error/status messages, Mira guidance, destination descriptions/highlights, weather labels, accessibility labels and page titles; do not translate user-entered personal data.
+- [x] When a traveller selects a preferred language, all user-facing text across the signed-in app changes immediately to that account's language and remains selected on future logins. Support English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali and Marathi. Include navigation, page copy, forms, actions, filters, empty/error/status messages, Mira guidance, destination descriptions/highlights, weather labels, accessibility labels and page titles; do not translate user-entered personal data.
 
 ## 4. Discover home
 - [x] The Discover home screen presents editorial destination inspiration and useful entry points into the travel experience.

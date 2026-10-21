@@ -20,24 +20,10 @@ import type { Language, Profile, TravelPreferences, TripDraft } from "./types";
 const emptyProfile: Profile = { id: "", display_name: "Traveller", onboarding_complete: false, language: "en" };
 const localWishlistKey = (userId: string) => `india-tourism:wishlist:${userId}`;
 const localProfileKey = (userId: string) => `india-tourism:profile:${userId}`;
-const preferredLanguageKey = "india-tourism:language";
 const supportedLanguages: Language[] = ["en", "hi", "te", "ta", "kn", "ml", "bn", "mr"];
-
-function readPreferredLanguage(): Language {
-  try {
-    const saved = localStorage.getItem(preferredLanguageKey) as Language | null;
-    return saved && supportedLanguages.includes(saved) ? saved : "en";
-  } catch {
-    return "en";
-  }
-}
 
 function isSupportedLanguage(value: unknown): value is Language {
   return typeof value === "string" && supportedLanguages.includes(value as Language);
-}
-
-function writePreferredLanguage(language: Language) {
-  try { localStorage.setItem(preferredLanguageKey, language); } catch { /* Keep the current session usable if storage is unavailable. */ }
 }
 
 function readLocalWishlist(userId: string): string[] {
@@ -73,7 +59,7 @@ export default function App() {
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [profileReady, setProfileReady] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
-  const [language, setLanguageState] = useState<Language>(readPreferredLanguage);
+  const [language, setLanguageState] = useState<Language>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({ slowTravel: true, culture: true, adventure: false, food: false });
   const [trip, setTrip] = useState<TripDraft>(getTripDraft("guest"));
   const [statusMessage, setStatusMessage] = useState("");
@@ -81,15 +67,17 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const [, forceLocaleRender] = useState(0);
 
-  setActiveLanguage(language);
+  const displayLanguage = session && location.pathname !== "/signin" && location.pathname !== "/reset-password" ? language : "en";
+  setActiveLanguage(displayLanguage);
   useEffect(() => {
     let active = true;
-    document.documentElement.lang = getLocaleTag(language);
-    void loadLocale(language).then(() => { if (active) forceLocaleRender((version) => version + 1); });
+    document.documentElement.lang = getLocaleTag(displayLanguage);
+    void loadLocale(displayLanguage).then(() => { if (active) forceLocaleRender((version) => version + 1); });
     return () => { active = false; };
-  }, [language]);
+  }, [displayLanguage]);
 
   useEffect(() => {
     let active = true;
@@ -102,6 +90,13 @@ export default function App() {
       if (!active) return;
       setSession(nextSession);
       setAuthReady(true);
+      if (!nextSession) {
+        setLanguageState("en");
+        setActiveLanguage("en");
+        setStatusMessage("");
+        setAuthError("");
+        setAuthMessage("");
+      }
       if (event === "PASSWORD_RECOVERY") navigate("/reset-password", { replace: true });
     });
     return () => { active = false; subscription.unsubscribe(); };
@@ -114,6 +109,10 @@ export default function App() {
       setProfile(emptyProfile);
       setProfileReady(false);
       setWishlist([]);
+      setLanguageState("en");
+      setPreferences({ slowTravel: true, culture: true, adventure: false, food: false });
+      setTrip(getTripDraft("guest"));
+      setStatusMessage("");
       return () => { active = false; };
     }
     setProfileReady(false);
@@ -126,17 +125,20 @@ export default function App() {
       const cloudProfile = profileResult.profile;
       const localLanguage = isSupportedLanguage(localProfile.language) ? localProfile.language : undefined;
       const cloudLanguage = isSupportedLanguage(cloudProfile?.language) ? cloudProfile.language : undefined;
+      const metadataLanguage = isSupportedLanguage(user.user_metadata?.preferred_language) ? user.user_metadata.preferred_language : undefined;
+      const metadataOnboardingComplete = user.user_metadata?.onboarding_complete === true;
+      const initialSignupProfile = metadataOnboardingComplete && cloudProfile?.onboarding_complete !== true;
       const merged: Profile = {
         id: user.id,
         display_name: cloudProfile?.display_name ?? localProfile.display_name ?? userName,
-        onboarding_complete: cloudProfile?.onboarding_complete ?? localProfile.onboarding_complete ?? false,
-        language: localLanguage ?? cloudLanguage ?? "en",
+        onboarding_complete: initialSignupProfile ? true : cloudProfile?.onboarding_complete ?? localProfile.onboarding_complete ?? metadataOnboardingComplete,
+        language: initialSignupProfile ? metadataLanguage ?? cloudLanguage ?? localLanguage ?? "en" : cloudLanguage ?? metadataLanguage ?? localLanguage ?? "en",
       };
       setProfile(merged);
       setLanguageState(merged.language);
-      writePreferredLanguage(merged.language);
-      if (!profileResult.error && cloudProfile && localLanguage && localLanguage !== cloudLanguage) {
-        void saveProfile(user.id, merged.display_name, localLanguage, merged.onboarding_complete).catch(() => undefined);
+      writeLocalProfile(user.id, merged);
+      if (!profileResult.error && (!cloudProfile || initialSignupProfile) && (metadataLanguage || metadataOnboardingComplete)) {
+        void saveProfile(user.id, merged.display_name, merged.language, merged.onboarding_complete).catch(() => undefined);
       }
       if (profileResult.error || wishlistResult.error) {
         setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
@@ -148,10 +150,19 @@ export default function App() {
     }).catch(() => {
       if (!active) return;
       const userName = user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Traveller";
-      const merged: Profile = { ...emptyProfile, ...localProfile, id: user.id, display_name: localProfile.display_name ?? userName };
+      const metadataLanguage = isSupportedLanguage(user.user_metadata?.preferred_language) ? user.user_metadata.preferred_language : undefined;
+      const localLanguage = isSupportedLanguage(localProfile.language) ? localProfile.language : undefined;
+      const merged: Profile = {
+        ...emptyProfile,
+        ...localProfile,
+        id: user.id,
+        display_name: localProfile.display_name ?? userName,
+        onboarding_complete: localProfile.onboarding_complete ?? user.user_metadata?.onboarding_complete === true,
+        language: metadataLanguage ?? localLanguage ?? "en",
+      };
       setProfile(merged);
       setLanguageState(merged.language);
-      writePreferredLanguage(merged.language);
+      writeLocalProfile(user.id, merged);
       setWishlist(readLocalWishlist(user.id));
       setStatusMessage("Your account is active. Some details are being kept on this device until sync is available.");
       setProfileReady(true);
@@ -181,7 +192,6 @@ export default function App() {
     setAuthMessage("");
     setLanguageState(nextLanguage);
     setActiveLanguage(nextLanguage);
-    writePreferredLanguage(nextLanguage);
     if (!userId) return;
     const next = { ...profile, language: nextLanguage };
     setProfile(next);
@@ -195,7 +205,6 @@ export default function App() {
     if (!userId) return;
     setLanguageState(nextLanguage);
     setActiveLanguage(nextLanguage);
-    writePreferredLanguage(nextLanguage);
     const next = { ...profile, id: userId, language: nextLanguage, onboarding_complete: true };
     setProfile(next);
     writeLocalProfile(userId, next);
@@ -248,16 +257,17 @@ export default function App() {
     } finally { setAuthBusy(false); }
   }
 
-  async function signUp(name: string, email: string, password: string) {
+  async function signUp(name: string, email: string, password: string, preferredLanguage: Language) {
     setAuthBusy(true); setAuthError(""); setAuthMessage("");
     try {
-      const options = { data: { display_name: name }, emailRedirectTo: `${window.location.origin}/signin` };
+      const userMetadata = { display_name: name, preferred_language: preferredLanguage, onboarding_complete: true };
+      const options = { data: userMetadata, emailRedirectTo: `${window.location.origin}/signin` };
       let result = await supabase.auth.signUp({ email, password, options });
       if (result.error && /redirect|url.*allow|not allowed/i.test(result.error.message)) {
-        result = await supabase.auth.signUp({ email, password, options: { data: { display_name: name } } });
+        result = await supabase.auth.signUp({ email, password, options: { data: userMetadata } });
       }
       if (result.error) { setAuthError(result.error.message.toLowerCase().includes("already") ? "That email already has an account. Try signing in instead." : "We couldn’t create your account just now. Please try again."); return; }
-      if (result.data.session) navigate("/onboarding", { replace: true });
+      if (result.data.session) navigate("/discover", { replace: true });
       else setAuthMessage("Check your inbox for a confirmation link, then come back here to sign in. If the link opens the original site, finish confirmation there first.");
     } catch {
       setAuthError("We couldn’t reach the account service. Check your connection and try again.");
@@ -277,7 +287,7 @@ export default function App() {
     finally { setAuthBusy(false); }
   }
 
-  if (!authReady || !isLocaleLoaded(language)) return <LoadingScreen />;
+  if (!authReady || !isLocaleLoaded(displayLanguage)) return <LoadingScreen />;
   const onboardingPath = profile.onboarding_complete ? "/discover" : "/onboarding";
 
   return (

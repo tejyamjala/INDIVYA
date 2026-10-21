@@ -1,15 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, Mountain, Sparkles } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { tr } from "../lib/i18n";
+import { translate } from "../lib/i18n";
 import { setPageMeta } from "../lib/meta";
+import type { Language } from "../types";
 
 
 type Mode = "signin" | "signup" | "forgot";
 
 type Props = {
   onSignIn: (email: string, password: string) => Promise<void>;
-  onSignUp: (name: string, email: string, password: string) => Promise<void>;
+  onSignUp: (name: string, email: string, password: string, preferredLanguage: Language) => Promise<void>;
   onRecover: (email: string) => Promise<void>;
   busy: boolean;
   error: string;
@@ -19,10 +20,22 @@ type Props = {
 const backgroundVideo = "/manus-storage/india-tourism-mountains-to-beach_07f09fbf.mp4";
 const fallbackBackgroundVideo = "/india-tourism-mountains-to-beach.mp4";
 const poster = "https://images.pexels.com/photos/31838207/pexels-photo-31838207.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1900";
+const signupLanguages: { code: Language; native: string; english: string }[] = [
+  { code: "en", native: "English", english: "English" },
+  { code: "hi", native: "हिन्दी", english: "Hindi" },
+  { code: "te", native: "తెలుగు", english: "Telugu" },
+  { code: "ta", native: "தமிழ்", english: "Tamil" },
+  { code: "kn", native: "ಕನ್ನಡ", english: "Kannada" },
+  { code: "ml", native: "മലയാളം", english: "Malayalam" },
+  { code: "bn", native: "বাংলা", english: "Bengali" },
+  { code: "mr", native: "मराठी", english: "Marathi" },
+];
+const tr = (source: string) => translate("en", source);
 
 export function AuthPage({ onSignIn, onSignUp, onRecover, busy, error, message }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState<Language>("en");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +53,7 @@ export function AuthPage({ onSignIn, onSignUp, onRecover, busy, error, message }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (mode === "signin") await onSignIn(email.trim(), password);
-    if (mode === "signup") await onSignUp(name.trim(), email.trim(), password);
+    if (mode === "signup") await onSignUp(name.trim(), email.trim(), password, preferredLanguage);
     if (mode === "forgot") await onRecover(email.trim());
   }
 
@@ -90,7 +103,15 @@ export function AuthPage({ onSignIn, onSignUp, onRecover, busy, error, message }
             <form className="auth-form" onSubmit={handleSubmit}>
               {mode === "signup" && (
                 <label className="field-label">
-                  {tr("Your name")}{" "}<span className="input-shell"><Sparkles size={17} /><input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder={tr("What should we call you?")} required /></span>
+                  {tr("Your name")} {" "}<span className="input-shell"><Sparkles size={17} /><input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder={tr("What should we call you?")} required /></span>
+                </label>
+              )}
+              {mode === "signup" && (
+                <label className="field-label auth-language-field">
+                  {tr("Which language do you prefer?")}
+                  <select className="auth-language-select" value={preferredLanguage} onChange={(event) => setPreferredLanguage(event.target.value as Language)}>
+                    {signupLanguages.map((option) => <option value={option.code} key={option.code}>{option.native}{option.code === "en" ? "" : ` · ${option.english}`}</option>)}
+                  </select>
                 </label>
               )}
               <label className="field-label">
