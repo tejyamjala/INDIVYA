@@ -266,7 +266,24 @@ export default function App() {
       if (result.error && /redirect|url.*allow|not allowed/i.test(result.error.message)) {
         result = await supabase.auth.signUp({ email, password, options: { data: userMetadata } });
       }
-      if (result.error) { setAuthError(result.error.message.toLowerCase().includes("already") ? "That email already has an account. Try signing in instead." : "We couldn’t create your account just now. Please try again."); return; }
+      if (result.error) {
+        const reason = result.error.message.toLowerCase();
+        if (/already|registered|exists/.test(reason)) setAuthError("That email already has an account. Try signing in or resetting the password.");
+        else if (/signup.*disabled|signups? not allowed/.test(reason)) setAuthError("New account creation is currently disabled for this site. Contact the site owner.");
+        else if (/rate limit|too many|security purposes/.test(reason)) setAuthError("Too many account attempts. Please wait a little and try again.");
+        else if (/password|weak/.test(reason)) setAuthError("That password does not meet the account security requirements. Try a stronger password.");
+        else if (/email|invalid/.test(reason)) setAuthError("Enter a valid email address and try again.");
+        else setAuthError(`Account creation failed: ${result.error.message}`);
+        return;
+      }
+      if (result.data.user && !result.data.session && result.data.user.identities?.length === 0) {
+        setAuthError("That email already has an account. Try signing in or resetting the password.");
+        return;
+      }
+      if (!result.data.user) {
+        setAuthError("We could not confirm that your account was created. Please try again.");
+        return;
+      }
       if (result.data.session) navigate("/discover", { replace: true });
       else setAuthMessage("Check your inbox for a confirmation link, then come back here to sign in. If the link opens the original site, finish confirmation there first.");
     } catch {

@@ -6,6 +6,7 @@
 - [x] Keep sign-in, sign-up, password-recovery/reset and authentication status text in English regardless of the previous user's selected language.
 - [x] During first-time account creation, ask “Preferred language” and save the selection (English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali or Marathi) with that account.
 - [x] After sign-in, use that account's saved language for the signed-in app; on sign-out, return the public authentication screen to English so one user's locale is not shown to the next user.
+- [x] Do not report signup success when Supabase returns an empty-identity response for an already-registered email; explain that the account exists and direct the person to sign in or recover the password.
 
 ## 2. Traveller onboarding
 - [x] Onboarding lets travellers choose their preferred language before entering the main experience.
