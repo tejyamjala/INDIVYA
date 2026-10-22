@@ -1,0 +1,7 @@
+INDIVYA Flutter migration change set
+
+Merge the contents of this archive into the root of a fresh clone of tejyamjala/INDIVYA on a feature branch. It adds only flutter_app/ and .github/workflows/flutter.yml; the existing website source and README are unchanged.
+
+See flutter_app/docs/MOBILE_MIGRATION.md for feature scope, Supabase configuration, Flutter setup, testing, known gaps and follow-up TODOs.
+
+This migration set was not compiled in this environment because Flutter/Dart is not installed. Run flutter pub get, flutter analyze and flutter test before requesting review. Native Android/iOS folders are generated locally using the instructions in the migration guide.
