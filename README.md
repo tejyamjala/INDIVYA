@@ -22,12 +22,6 @@ git clone --branch feat/flutter-mobile-app https://github.com/Madhavyamjala/INDI
 cd INDIVYA
 ```
 
-If you already cloned the repository and have the branch locally, switch to it instead:
-
-```powershell
-git switch feat/flutter-mobile-app
-git pull
-```
 
 ## 2. Enter the Flutter project
 
