@@ -1,5 +1,10 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    prefer_interpolation_to_compose_strings: ignore
+
 linter:
   rules:
     avoid_print: true
