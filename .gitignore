@@ -1,6 +1,40 @@
+# Node / Vite
 node_modules/
 dist/
+coverage/
+
+# Local environment and secrets
 .env
 .env.*
 !.env.example
+!.env.*.example
+.secrets/
+.envrc
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Supabase local state
+.supabase/
+
+# Flutter / Dart (also mirrored in flutter_app/.gitignore)
+.dart_tool/
+.packages
+.pub-cache/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# OS noise
 .DS_Store
+Thumbs.db
