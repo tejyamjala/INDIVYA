@@ -13,7 +13,7 @@ bool get hasSupabaseConfig => supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmp
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (hasSupabaseConfig) await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  if (hasSupabaseConfig) await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   runApp(const IndivyaApp());
 }
 
@@ -233,7 +233,7 @@ class _IndivyaHomeState extends State<IndivyaHome> {
       Text(user?.email ?? 'Guest traveller', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
       Text(hasSupabaseConfig ? 'Account services configured' : 'Saved places stay on this device'),
       const SizedBox(height: 14),
-      DropdownButtonFormField<String>(value: language, decoration: const InputDecoration(labelText: 'Preferred language'), items: const [
+      DropdownButtonFormField<String>(initialValue: language, decoration: const InputDecoration(labelText: 'Preferred language'), items: const [
         DropdownMenuItem(value:'en', child:Text('English')), DropdownMenuItem(value:'hi', child:Text('हिन्दी')), DropdownMenuItem(value:'te', child:Text('తెలుగు')), DropdownMenuItem(value:'ta', child:Text('தமிழ்')), DropdownMenuItem(value:'kn', child:Text('ಕನ್ನಡ')), DropdownMenuItem(value:'ml', child:Text('മലയാളം')), DropdownMenuItem(value:'bn', child:Text('বাংলা')), DropdownMenuItem(value:'mr', child:Text('मराठी')),
       ], onChanged: (v) { if (v != null) { setState(() => language = v); _persist(); } }),
       if (hasSupabaseConfig && user == null) const Padding(padding: EdgeInsets.only(top: 10), child: Text('Authentication configuration detected; mobile sign-in flow requires deep-link validation.')),
